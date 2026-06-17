@@ -2,7 +2,7 @@
 
 A RAG-powered career advisor that compares your CV against any job description and answers questions about your fit — instantly.
 
-🔗 **[Live Demo](https://ask-my-cv-rainerioagbayani.streamlit.app/)** ← replace with your actual URL
+🔗 **[Live Demo](https://ask-my-cv-rainerioagbayani.streamlit.app/)**
 
 ## What It Does
 
