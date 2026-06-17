@@ -1,0 +1,13 @@
+Rainerio Jr. Agbayani - AI Automation Engineer
+
+EXPERIENCE:
+5 years of experience across software engineering, systems, and data roles.
+
+Skills: n8n, Python, JavaScript, REST APIs, Webhooks, Google Sheets, 
+Gmail Automation, ETL Pipelines, Prompt Engineering, Groq API, Tavily, 
+Agentic AI, LLM Integration, Dify, pandas
+
+Projects:
+1. AI Research Agent - autonomous agent with memory and reasoning loop
+2. Job Application Automation - n8n workflow with AI pitch generation
+3. KPI Tracker and Alert System - automated business metric monitoring
