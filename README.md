@@ -2,9 +2,11 @@
 
 A RAG-powered career advisor that compares your CV against any job description and answers questions about your fit — instantly.
 
+🔗 **[Live Demo](https://ask-my-cv-rainerioagbayani.streamlit.app/)** ← replace with your actual URL
+
 ## What It Does
 
-Upload your CV and a Job Description as text files. The app uses Retrieval Augmented Generation (RAG) to answer questions based only on your actual documents — not generic advice.
+Upload your CV and a Job Description (PDF or TXT). The app uses Retrieval Augmented Generation (RAG) to answer questions based only on your actual documents — not generic advice.
 
 Ask it:
 - **"Am I a good fit for this role?"**
@@ -13,31 +15,25 @@ Ask it:
 - **"What are my key strengths?"**
 - Or any custom question about your fit
 
-## Demo
-
-![Ask My CV Demo](demo.png)
-
-🔗 **[Live Demo](#)** ← replace with your Streamlit URL
-
 ## How It Works
 
 ```
-cv.txt + job.txt
-      ↓
-   CHUNK
+Upload CV + Job Description (PDF or TXT)
+              ↓
+           CHUNK
 Split documents into 500-character chunks
-      ↓
-   EMBED
+              ↓
+           EMBED
 Convert chunks to vectors using HuggingFace
 sentence-transformers (all-MiniLM-L6-v2)
-      ↓
-   STORE
+              ↓
+           STORE
 Save vectors in ChromaDB (in-memory)
-      ↓
-   RETRIEVE
+              ↓
+          RETRIEVE
 Fetch relevant chunks from both CV and JD
-      ↓
-   ANSWER
+              ↓
+           ANSWER
 Groq LLM answers using only retrieved context
 ```
 
@@ -51,9 +47,10 @@ Groq LLM answers using only retrieved context
 | HuggingFace | Embedding model (all-MiniLM-L6-v2) |
 | Groq API | LLM inference (LLaMA 3.3 70b) |
 | Streamlit | Web UI and deployment |
+| pypdf | PDF text extraction |
 | python-dotenv | Environment variable management |
 
-## Setup
+## Setup — Run Locally
 
 **1. Clone the repo**
 ```bash
@@ -62,37 +59,57 @@ cd ask-my-cv
 ```
 
 **2. Install dependencies**
+
+With uv (recommended):
+```bash
+uv sync
+```
+
+Or with pip:
 ```bash
 pip install -r requirements.txt
 ```
 
 **3. Add your API key**
-```bash
-cp .env.example .env
+
+Create a `.env` file:
 ```
-Fill in your Groq API key in `.env`
+GROQ_API_KEY=your_groq_key_here
+```
 
-**4. Add your documents**
-
-Create two text files in the project root:
-- `cv.txt` — paste your CV content
-- `job.txt` — paste the job description
-
-**5. Run the app**
+**4. Run the app**
 ```bash
 streamlit run app.py
 ```
 
 Open `http://localhost:8501` in your browser.
 
-## Switching CVs or Job Descriptions
+## Setup — Deploy on Streamlit Cloud
 
-Just replace the content in `cv.txt` and `job.txt` and restart the app. The vectorstore rebuilds automatically on every run — no manual re-ingestion needed.
+1. Fork this repo
+2. Go to **share.streamlit.io**
+3. Click **Create app** → select this repo
+4. Set main file to `app.py`
+5. Under **Advanced settings → Secrets** add:
+```
+GROQ_API_KEY="your_groq_key_here"
+```
+6. Click **Deploy**
+
+## Usage
+
+1. Upload your CV — PDF or TXT
+2. Upload the Job Description — PDF or TXT
+3. Click **Start Analysis**
+4. Use suggested questions or type your own in the chat
+
+Click **Upload new documents** anytime to analyze a different role.
 
 ## Key Design Decisions
 
-- **In-memory ChromaDB** — no file persistence means no permission conflicts and instant rebuild on every run. Appropriate for a single-user career tool.
+- **In-memory ChromaDB** — no file persistence means no permission conflicts and instant rebuild on every upload. Appropriate for a single-user career tool.
 - **Separate CV and JD retrieval** — fetches chunks from both documents independently before passing to the LLM, ensuring the CV is always represented in the context regardless of query phrasing.
+- **PDF + TXT support** — covers both common CV formats without requiring conversion.
 - **Groq over OpenAI** — faster inference, free tier, no cost during development and demos.
 - **Streamlit** — fastest path to a deployed, shareable UI for a Python-based AI app.
 
@@ -102,4 +119,4 @@ RAG (Retrieval Augmented Generation) gives the LLM access to your documents at q
 
 ## Skills Demonstrated
 
-`Python` `LangChain` `RAG` `ChromaDB` `Vector Embeddings` `Groq API` `Prompt Engineering` `Streamlit` `HuggingFace`
+`Python` `LangChain` `RAG` `ChromaDB` `Vector Embeddings` `Groq API` `Prompt Engineering` `Streamlit` `HuggingFace` `pypdf`
