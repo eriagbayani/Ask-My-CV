@@ -1,7 +1,35 @@
+# Environment variables — never commit
 .env
+
+# Virtual environment
 .venv
 venv
 __pycache__
-chroma_db_cv
-chroma_db
 *.pyc
+*.pyo
+
+# ChromaDB local storage
+chroma_db
+chroma_db_cv
+
+# Your personal documents — never commit
+cv.txt
+job.txt
+*.pdf
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode
+.idea
+*.swp
+
+# Logs
+*.log
+
+# Temp files
+*.tmp
+*.csv
+output/

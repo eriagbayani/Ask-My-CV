@@ -1,15 +1,17 @@
 import os
-import shutil
 import streamlit as st
 from dotenv import load_dotenv
-from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_groq import ChatGroq
+from langchain_core.documents import Document
+import pypdf
+import io
 
 load_dotenv()
 
+# ── PAGE CONFIG ────────────────────────────────────────
 st.set_page_config(
     page_title="Ask My CV",
     page_icon="🎯",
@@ -17,65 +19,61 @@ st.set_page_config(
 )
 
 st.title("🎯 Ask My CV")
-st.caption("Compare your CV against a Job Description")
+st.caption("Upload any two documents and ask questions about them")
 
 # ── SESSION STATE ──────────────────────────────────────
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 if "vectorstore" not in st.session_state:
     st.session_state.vectorstore = None
+if "ready" not in st.session_state:
+    st.session_state.ready = False
 
-# ── BUILD VECTORSTORE ONCE ─────────────────────────────
-def build_vectorstore():
-    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+# ── FILE READER ────────────────────────────────────────
+def read_file(uploaded_file) -> str:
+    if uploaded_file.type == "application/pdf":
+        pdf_reader = pypdf.PdfReader(io.BytesIO(uploaded_file.read()))
+        text = ""
+        for page in pdf_reader.pages:
+            text += page.extract_text() + "\n"
+        return text
+    else:
+        return uploaded_file.read().decode("utf-8")
 
-    cv_docs = TextLoader("cv.txt").load()
-    jd_docs = TextLoader("job.txt").load()
-
-    for doc in cv_docs:
-        doc.metadata["source"] = "CV"
-    for doc in jd_docs:
-        doc.metadata["source"] = "Job Description"
-
-    all_docs = cv_docs + jd_docs
+# ── BUILD VECTORSTORE ──────────────────────────────────
+def build_vectorstore(cv_text: str, jd_text: str):
+    cv_doc = Document(page_content=cv_text, metadata={"source": "CV"})
+    jd_doc = Document(page_content=jd_text, metadata={"source": "Job Description"})
 
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=500,
         chunk_overlap=50
     )
-    chunks = splitter.split_documents(all_docs)
+    chunks = splitter.split_documents([cv_doc, jd_doc])
+
+    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
     vectorstore = Chroma.from_documents(
         documents=chunks,
         embedding=embeddings,
         collection_name="ask_my_cv"
-        # No persist_directory — runs in memory only, no file conflicts
     )
 
     return vectorstore
 
-# ── LOAD ON STARTUP ────────────────────────────────────
-if st.session_state.vectorstore is None:
-    with st.spinner("📄 Loading CV and Job Description..."):
-        st.session_state.vectorstore = build_vectorstore()
-
-st.success("✅ Documents loaded — ask me anything!")
-
 # ── ASK QUESTION ───────────────────────────────────────
 def ask_question(question: str):
     vectorstore = st.session_state.vectorstore
-    
-    # Retrieve from BOTH sources separately
     all_docs = vectorstore.get()
-    
+
     cv_chunks = [doc for doc, meta in zip(
         all_docs['documents'], all_docs['metadatas']
     ) if meta.get('source') == 'CV']
-    
+
     jd_chunks = [doc for doc, meta in zip(
         all_docs['documents'], all_docs['metadatas']
     ) if meta.get('source') == 'Job Description']
-    
+
     cv_context = "\n\n".join(cv_chunks[:4])
     jd_context = "\n\n".join(jd_chunks[:4])
 
@@ -102,61 +100,105 @@ Answer:"""
     response = llm.invoke(prompt)
     return response.content
 
+# ── UPLOAD UI (shows when not ready) ──────────────────
+if not st.session_state.ready:
+    st.markdown("### 📁 Upload your documents")
 
-# ── SUGGESTED QUESTIONS ────────────────────────────────
-st.markdown("### 💡 Suggested questions")
-col1, col2 = st.columns(2)
-with col1:
-    if st.button("Am I a good fit?"):
-        st.session_state.chat_history.append({
-            "role": "user",
-            "content": "Am I a good fit for this role based on my CV?"
-        })
-with col2:
-    if st.button("What should I highlight?"):
-        st.session_state.chat_history.append({
-            "role": "user",
-            "content": "What should I highlight in my application?"
-        })
+    col1, col2 = st.columns(2)
+    with col1:
+        cv_file = st.file_uploader(
+            "Upload your CV",
+            type=["txt", "pdf"],
+            key="cv_upload"
+        )
+    with col2:
+        jd_file = st.file_uploader(
+            "Upload Job Description",
+            type=["txt", "pdf"],
+            key="jd_upload"
+        )
 
-col3, col4 = st.columns(2)
-with col3:
-    if st.button("What skills am I missing?"):
-        st.session_state.chat_history.append({
-            "role": "user",
-            "content": "What skills am I missing for this role?"
-        })
-with col4:
-    if st.button("What are my strengths?"):
-        st.session_state.chat_history.append({
-            "role": "user",
-            "content": "What are my key strengths for this role?"
-        })
+    if cv_file and jd_file:
+        if st.button("🚀 Start Analysis"):
+            with st.spinner("📄 Reading documents..."):
+                cv_text = read_file(cv_file)
+                jd_text = read_file(jd_file)
 
-# ── CHAT INPUT ─────────────────────────────────────────
-st.markdown("### 💬 Chat")
-user_input = st.chat_input("Ask anything about your fit for this role...")
-if user_input:
-    st.session_state.chat_history.append({
-        "role": "user",
-        "content": user_input
-    })
+            with st.spinner("🧮 Building knowledge base..."):
+                st.session_state.vectorstore = build_vectorstore(
+                    cv_text, jd_text
+                )
+                st.session_state.ready = True
 
-# ── PROCESS LAST QUESTION ──────────────────────────────
-if st.session_state.chat_history:
-    last = st.session_state.chat_history[-1]
-    if last["role"] == "user":
-        with st.spinner("🤔 Analyzing..."):
-            answer = ask_question(last["content"])
+            st.rerun()
+    else:
+        st.info("👆 Upload both files to get started")
+
+# ── CHAT UI (shows when ready) ─────────────────────────
+if st.session_state.ready:
+    st.success("✅ Documents analyzed — ask me anything!")
+
+    if st.button("🔄 Upload new documents"):
+        st.session_state.ready = False
+        st.session_state.vectorstore = None
+        st.session_state.chat_history = []
+        st.rerun()
+
+    # Suggested questions
+    st.markdown("### 💡 Suggested questions")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Am I a good fit?"):
             st.session_state.chat_history.append({
-                "role": "assistant",
-                "content": answer
+                "role": "user",
+                "content": "Am I a good fit for this role based on my CV?"
+            })
+    with col2:
+        if st.button("What should I highlight?"):
+            st.session_state.chat_history.append({
+                "role": "user",
+                "content": "What should I highlight in my application?"
             })
 
-# ── DISPLAY CHAT ───────────────────────────────────────
-for message in st.session_state.chat_history:
-    with st.chat_message(message["role"]):
-        st.write(message["content"])
+    col3, col4 = st.columns(2)
+    with col3:
+        if st.button("What skills am I missing?"):
+            st.session_state.chat_history.append({
+                "role": "user",
+                "content": "What skills am I missing for this role?"
+            })
+    with col4:
+        if st.button("What are my strengths?"):
+            st.session_state.chat_history.append({
+                "role": "user",
+                "content": "What are my key strengths for this role?"
+            })
 
+    # Chat input
+    st.markdown("### 💬 Chat")
+    user_input = st.chat_input("Ask anything about your fit for this role...")
+    if user_input:
+        st.session_state.chat_history.append({
+            "role": "user",
+            "content": user_input
+        })
+
+    # Process last question
+    if st.session_state.chat_history:
+        last = st.session_state.chat_history[-1]
+        if last["role"] == "user":
+            with st.spinner("🤔 Analyzing..."):
+                answer = ask_question(last["content"])
+                st.session_state.chat_history.append({
+                    "role": "assistant",
+                    "content": answer
+                })
+
+    # Display chat history
+    for message in st.session_state.chat_history:
+        with st.chat_message(message["role"]):
+            st.write(message["content"])
+
+# ── FOOTER ─────────────────────────────────────────────
 st.divider()
 st.caption("Built with LangChain · ChromaDB · Groq · Streamlit")
