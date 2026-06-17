@@ -17,25 +17,7 @@ Ask it:
 
 ## How It Works
 
-```
-Upload CV + Job Description (PDF or TXT)
-              ↓
-           CHUNK
-Split documents into 500-character chunks
-              ↓
-           EMBED
-Convert chunks to vectors using HuggingFace
-sentence-transformers (all-MiniLM-L6-v2)
-              ↓
-           STORE
-Save vectors in ChromaDB (in-memory)
-              ↓
-          RETRIEVE
-Fetch relevant chunks from both CV and JD
-              ↓
-           ANSWER
-Groq LLM answers using only retrieved context
-```
+![](/ask_my_cv_architecture.png)
 
 ## Tech Stack
 
